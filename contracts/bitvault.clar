@@ -63,3 +63,63 @@
     status: (string-ascii 20),
   }
 )
+
+;; User Loan Tracking - Maps users to their active loans
+(define-map user-loans
+  { user: principal }
+  { active-loans: (list 10 uint) }
+)
+
+;; Price Feed Management - Oracle price data for supported assets
+(define-map collateral-prices
+  { asset: (string-ascii 3) }
+  { price: uint }
+)
+
+;; PRIVATE UTILITY FUNCTIONS
+
+;; Calculate collateral ratio as percentage
+(define-private (calculate-collateral-ratio
+    (collateral uint)
+    (loan uint)
+    (btc-price uint)
+  )
+  (let (
+      (collateral-value (* collateral btc-price))
+      (ratio (* (/ collateral-value loan) u100))
+    )
+    ratio
+  )
+)
+
+;; Calculate accrued interest based on blocks elapsed
+(define-private (calculate-interest
+    (principal uint)
+    (rate uint)
+    (blocks uint)
+  )
+  (let (
+      (interest-per-block (/ (* principal rate) (* u100 u144))) ;; Daily interest / blocks per day
+      (total-interest (* interest-per-block blocks))
+    )
+    total-interest
+  )
+)
+
+;; Check if loan position requires liquidation
+(define-private (check-liquidation (loan-id uint))
+  (let (
+      (loan (unwrap! (map-get? loans { loan-id: loan-id }) ERR-LOAN-NOT-FOUND))
+      (btc-price (unwrap! (get price (map-get? collateral-prices { asset: "BTC" }))
+        ERR-NOT-INITIALIZED
+      ))
+      (current-ratio (calculate-collateral-ratio (get collateral-amount loan)
+        (get loan-amount loan) btc-price
+      ))
+    )
+    (if (<= current-ratio (var-get liquidation-threshold))
+      (liquidate-position loan-id)
+      (ok true)
+    )
+  )
+)
