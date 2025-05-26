@@ -269,3 +269,65 @@
     )
   )
 )
+
+;; GOVERNANCE & ADMINISTRATIVE FUNCTIONS
+
+;; Update minimum collateral ratio requirement
+(define-public (update-collateral-ratio (new-ratio uint))
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (asserts! (>= new-ratio u110) ERR-INVALID-AMOUNT)
+    (var-set minimum-collateral-ratio new-ratio)
+    (ok true)
+  )
+)
+
+;; Update liquidation threshold percentage
+(define-public (update-liquidation-threshold (new-threshold uint))
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (asserts! (>= new-threshold u110) ERR-INVALID-AMOUNT)
+    (var-set liquidation-threshold new-threshold)
+    (ok true)
+  )
+)
+
+;; Update asset price feeds from trusted oracles
+(define-public (update-price-feed
+    (asset (string-ascii 3))
+    (new-price uint)
+  )
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (asserts! (is-valid-asset asset) ERR-INVALID-ASSET)
+    (asserts! (is-valid-price new-price) ERR-INVALID-PRICE)
+    (ok (map-set collateral-prices { asset: asset } { price: new-price }))
+  )
+)
+
+;; READ-ONLY QUERY FUNCTIONS
+
+;; Get detailed information about a specific loan
+(define-read-only (get-loan-details (loan-id uint))
+  (map-get? loans { loan-id: loan-id })
+)
+
+;; Get all active loans for a specific user
+(define-read-only (get-user-loans (user principal))
+  (map-get? user-loans { user: user })
+)
+
+;; Get comprehensive platform statistics
+(define-read-only (get-platform-stats)
+  {
+    total-btc-locked: (var-get total-btc-locked),
+    total-loans-issued: (var-get total-loans-issued),
+    minimum-collateral-ratio: (var-get minimum-collateral-ratio),
+    liquidation-threshold: (var-get liquidation-threshold),
+  }
+)
+
+;; Get list of supported collateral assets
+(define-read-only (get-valid-assets)
+  VALID-ASSETS
+)
